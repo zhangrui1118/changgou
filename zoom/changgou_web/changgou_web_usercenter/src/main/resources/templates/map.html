@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <!--下面我们添加一个meta标签，以便使您的页面更好的在移动平台上展示:地图。-->
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <title>传智健康</title>
+
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="/plugins/elementui/index.css">
+    <link rel="stylesheet" href="/plugins/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+
+    <!--设置容器样式大小，使地图充满整个浏览器窗口-->
+    <style type="text/css">
+        body, html{width: 100%;height: 100%;margin:0;font-family:"微软雅黑";}
+        #l-map{height:430px;width:95%;margin-left: 25px}
+        #r-result{width:95%; font-size:14px;line-height:20px;margin-left: 25px}
+    </style>
+
+    <!--引用百度地图API文件-->
+    <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=tnr1aGlVhNA9EPrUXGxBX0GddyDoiA0T">
+        //v2.0版本的引用方式：src="http://api.map.baidu.com/api?v=2.0&ak=您的密钥"
+    </script>
+</head>
+<body class="hold-transition">
+<div >
+    <el-container>
+        <el-header  class="main-header" style="height:110px;">
+            <div class="content-header">
+                <h1>首页<small>物流轨迹</small></h1>
+                <el-breadcrumb separator-class="el-icon-arrow-right" class="breadcrumb">
+                    <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+                    <el-breadcrumb-item>物流轨迹</el-breadcrumb-item>
+                </el-breadcrumb>
+            </div>
+            <div class="app-container">
+                <div class="filter-container">
+                    &nbsp; &nbsp;
+                    <el-link target="success"><a href="map.html" >分布图</a></el-link>
+                    &nbsp; &nbsp; &nbsp; &nbsp;
+                    <el-link target="success"><a href="address.html" >新增选项</a></el-link>
+                    <el-link target="success"><a href="map_detail.html" >详细信息</a></el-link>
+
+                </div>
+            </div>
+        </el-header>
+        <el-main >
+
+            <!--地图需要一个HTML元素作为容器，这样才能展现到页面上。这里我们创建了一个div元素。-->
+            <div id="l-map"></div>
+            <div id="r-result">
+                <!--<input type="button" value="批量反地址解析+商圈" onclick="bdGEO(0)" />-->
+                <div id="result"></div>
+            </div>
+
+        </el-main>
+    </el-container>
+
+</div>
+</body>
+<!-- 引入组件库 -->
+<script src="/js/vue.js"></script>
+<script type="text/javascript" src="/js/jquery.min.js"></script>
+<script src="/plugins/elementui/index.js"></script>
+<script src="/js/axios-0.18.0.js"></script>
+<script type="text/javascript">
+    // 百度地图API功能
+    var map = new BMap.Map("l-map");
+    map.centerAndZoom(new BMap.Point(117.261567,31.772121),3);
+    map.enableScrollWheelZoom(true);
+    var index = 0;
+    var myGeo = new BMap.Geocoder();
+    new Vue({
+        data:{
+
+            longitude:'',
+            latitude:'',
+
+
+        },
+
+        created(){
+            axios.get("/api/wuser/map/mapInfo").then((res)=>{
+
+                if (res.data.flag){
+                    var list=res.data.data;
+
+                    var adds=[];
+                    for (var i1 = 0; i1 <list.length; i1++) {
+                        adds.push(new BMap.Point(list[i1].longitude,list[i1].latitude));
+
+                    }
+                    for(var i = 0; i<adds.length; i++){
+                        var marker = new BMap.Marker(adds[i]);
+                        map.addOverlay(marker);
+                        marker.setLabel(new BMap.Label(list[i].city,{offset:new BMap.Size(20,-10)}));
+                    }
+
+                    // 展示线路
+                /*alert(list[0].longitude);
+                    alert(list[0].latitude);*/
+                    var p1 = new BMap.Point(list[0].longitude,list[0].latitude);
+
+                    for (let i = 1; i < adds.length-1; i++) {
+                        var p2 = new BMap.Point(list[i].longitude,list[i].latitude);
+                        var p3 = new BMap.Point(list[i+1].longitude,list[i+1].latitude);
+                    }
+
+
+
+                    var end = list[list.length-1];
+                    var p4 = new BMap.Point(end.longitude,end.latitude);
+
+                    var driving = new BMap.DrivingRoute(map, {renderOptions:{map: map, autoViewport: true}});
+                    //  driving.search(p1, p2,{waypoints:[p3,p4]});//waypoints表示途经点
+
+                    driving.search(p4, p1,{waypoints:[p3,p2]});//waypoints表示途经点
+
+
+                }
+            })
+        }
+    });
+        // 划线
+
+
+
+
+
+</script>
+</html>

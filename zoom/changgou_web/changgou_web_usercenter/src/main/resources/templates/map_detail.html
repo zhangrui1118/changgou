@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <!--下面我们添加一个meta标签，以便使您的页面更好的在移动平台上展示:地图。-->
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <style type="text/css">
+        body, html{width: 100%;height: 100%;margin:0;font-family:"微软雅黑";font-size:14px;}
+        #l-map{height:300px;width:100%;}
+        #r-result{width:100%;}
+    </style>
+    <script type="text/javascript" src="http://api.map.baidu.com/api?v=2.0&ak=tnr1aGlVhNA9EPrUXGxBX0GddyDoiA0T"></script>
+
+    <title>地图详情</title>
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="/plugins/elementui/index.css">
+    <link rel="stylesheet" href="/plugins/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+
+    <script  type="text/javascript" src="/js/axios.js" ></script>
+
+    <style type="text/css">
+        .tangram-suggestion-main {
+            z-index: 999999;
+        }
+    </style>
+</head>
+<body class="hold-transition">
+<div >
+    <el-container>
+        <el-header  class="main-header" style="height:110px;">
+            <div class="content-header">
+                <h1>首页<small>物流</small></h1>
+                <el-breadcrumb separator-class="el-icon-arrow-right" class="breadcrumb">
+                    <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+                    <el-breadcrumb-item>物流信息中心</el-breadcrumb-item>
+                </el-breadcrumb>
+            </div>
+            <div class="app-container">
+                <div class="filter-container">
+                    &nbsp; &nbsp;
+                    <el-link target="success"><a href="map.html" >分布图</a></el-link>
+                    &nbsp; &nbsp; &nbsp; &nbsp;
+                    <el-link target="success"><a href="map_detail.html" >详细信息</a></el-link>
+                </div>
+            </div>
+        </el-header>
+        <el-main >
+            <div class="app-container" id="app">
+                <div class="box">
+                    <div class="filter-container">
+                        <!--v-model="pagination.queryString" 双向绑定了 下面pagination.queryString变量-->
+                        <el-input placeholder="公司地址" v-model="pagination.queryString" style="width: 200px;" class="filter-item"></el-input>
+                        <el-button @click="findPage()" class="dalfBut">查询</el-button>
+                        <el-button type="primary" class="butT" @click="handleCreate()">查询发货地点</el-button>
+                    </div>
+                    <el-table size="small" current-row-key="id" :data="dataList" stripe highlight-current-row>
+
+                        <el-table-column type="index" align="center" label="序号"></el-table-column>
+                        <el-table-column prop="name" label="发货地点" align="center"></el-table-column>
+                        <el-table-column prop="phone" label="买家电话" align="center"></el-table-column>
+                        <el-table-column prop="address" label="物流公司" align="center"></el-table-column>
+                        <el-table-column prop="longitude" label="买家姓名" align="center"></el-table-column>
+                        <el-table-column prop="latitude" label="收货地址" align="center"></el-table-column>
+                        <el-table-column label="操作" align="center">
+                            <template slot-scope="scope">
+                                <el-button size="mini" type="primary" @click="handleUpdate(scope.row)">编辑</el-button>
+                                <el-button size="mini" type="danger" @click="handleDelete(scope.row)">删除</el-button>
+                            </template>
+                        </el-table-column>
+                        </el-table-column>
+                    </el-table>
+                    <div class="pagination-container">
+                        <!--为分页条组件绑定current-change事件，此事件是分页条组件自己定义的事件，当页码改变时触发，对
+                            应的处理函数为handleCurrentChang-->
+
+                        <el-pagination
+                                class="pagiantion"
+                                @current-change="handleCurrentChange"
+                                :current-page="pagination.currentPage"
+                                :page-size="pagination.pageSize"
+                                layout="total, prev, pager, next, jumper"
+                                :total="pagination.total">
+                        </el-pagination>
+                    </div>
+                    <el-dialog title="新增地址" :visible.sync="dialogFormVisible"  >
+                        <div slot="footer" style="margin-left: 0px">
+                            <div id="r-result" class="filter-container">
+
+                                <el-input placeholder="发货地查看"  v-model="tableData.address"  type="text" id="suggestId" size="20"  style="width: 450px;" class="filter-item"></el-input>
+                                <el-button type="primary" class="butT" @click="searchByStationName(tableData.address),dialogFormVisible=false">确定添加</el-button>
+                            </div>
+                            <div id="searchResultPanel" style="border:1px solid #C0C0C0;width:450px;height:auto; display:none;" ></div>
+                            <div id="l-map"></div>
+                        </div>
+
+                    </el-dialog>
+
+                </div>
+            </div>
+
+        </el-main>
+    </el-container>
+
+</div>
+</body>
+<!-- 引入组件库 -->
+<script src="/js/vue.js"></script>
+<script src="/plugins/elementui/index.js"></script>
+<script type="text/javascript" src="/js/jquery.min.js"></script>
+<script>
+ // vue 在element之前
+    var vue = new Vue({
+        el: '#app',
+        data:{
+            pagination: {//分页相关模型数据
+                currentPage: 1,//当前页码
+                pageSize:10,//每页显示的记录数
+                total:0,//总记录数
+                queryString:null//查询条件
+                /* queryString:null//查询条件 双向绑定了  输入框的内容*/
+            },
+            tableData:{
+                address:null,
+                longitude:'',
+                latitude:'',
+            },
+            dataList: [],//当前页要展示的分页列表数据
+            formData: {},//表单数据
+            dialogFormVisible: false,//增加表单是否可见
+            dialogFormVisible4Edit:false // 编辑表单是否可见
+        },
+        created() {
+            axios.post("/map/findAddress.do",this.pagination).then((res)=>{
+                if (res.data.flag){
+                    this.dataList=res.data.data.rows;
+                    this.pagination.total=res.data.data.total;
+                }else {
+                    this.$message.error(res.data.message)
+                }
+            })
+        },
+
+        methods:{
+            //查询分页展示
+            findPage(){
+                // 构造传递的参数
+                if(this.pagination.queryString !=null){
+                    this.pagination.currentPage = 1;
+                }
+                let param = {
+                    currentPage: this.pagination.currentPage,
+                    pageSize: this.pagination.pageSize,
+                    queryString: this.pagination.queryString,
+
+                };
+
+                //查询地址信息
+                axios.post("/map/findAddress.do",param).then((res)=>{
+                    if (res.data.flag){
+                        this.dataList=res.data.data.rows;
+                        this.pagination.total=res.data.data.total;
+                    }else {
+                        this.$message.error(res.data.message)
+                    }
+                })
+            },
+            // 分页查询
+            handleCurrentChange(currentPage){
+                this.pagination.currentPage=currentPage;
+                if(this.pagination.queryString !=null){
+                    this.pagination.currentPage = 1;
+                }
+                // 构造分页查询参数
+                let param = {
+                    currentPage: this.pagination.currentPage,
+                    pageSize: this.pagination.pageSize,
+                    queryString: this.pagination.queryString,
+
+                };
+                axios.post("/map/findAddress.do",param).then((res)=>{
+                    if (res.data.flag){
+                        this.dataList=res.data.data.rows;
+                        this.pagination.total=res.data.data.total;
+                    }else {
+                        this.$message.error(res.data.message)
+                    }
+                })
+            },
+            //弹出新增地址二级菜单
+            handleCreate(){
+                this.dialogFormVisible=true;
+            },
+            handleAdd(){
+                this.dialogFormVisible=false;
+
+            },
+            //弹出编辑的二级菜单
+            handleUpdate(id){
+                this.dialogFormVisible4Edit = true;
+
+            },
+
+            handleDelete(row){
+                this.$confirm('此操作将永久删除该文件, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    axios.post("/map/deleteAddress.do?id="+row.id).then((res)=>{
+                        if (res.data.flag){
+                            this.$message({
+                                message:res.data.message,
+                                type:"success"
+                            })
+                        } else {
+                            this.$message.error(res.data.message);
+                        }
+                    }).finally(()=>{
+                        this.findPage();
+
+                    });
+                    this.findPage();
+                }).catch(() => {
+                    this.$message({
+                        type: 'info',
+                        message: '已取消删除'
+                    });
+                });
+
+            },
+            searchByStationName(address){
+                var map = new BMap.Map("l-map");
+                var localSearch = new BMap.LocalSearch(map);
+                localSearch.enableAutoViewport(); //允许自动调节窗体大小
+                var keyword = document.getElementById("suggestId").value;
+                var num=1;
+                localSearch.setSearchCompleteCallback(function (searchResult) {
+                    var poi = searchResult.getPoi(0);
+                    var longitude= poi.point.lng;
+                    var latitude= poi.point.lat;
+                    if (num===1) {
+                        num++;
+                        //1.创建核心对象
+                        var xmlhttp;
+                        if (window.XMLHttpRequest) {// code for IE7+, Firefox, Chrome, Opera, Safari
+                            xmlhttp = new XMLHttpRequest();
+                        } else {// code for IE6, IE5
+                            xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+                        }
+
+                        //2. 建立连接
+                        xmlhttp.open("GET", "/map/add.do?longitude=" + longitude + "&latitude=" + latitude + "&address=" + address, true);
+
+                        //3.发送请求
+                        xmlhttp.send();
+
+                        //4.接受并处理来自服务器的响应结果
+                        //当xmlhttp对象的就绪状态改变时，触发事件onreadystatechange。
+                        xmlhttp.onreadystatechange = function () {
+                            //判断readyState就绪状态是否为4，判断status响应状态码是否为200
+                            if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+                                //获取服务器的响应结果
+                                var responseText = xmlhttp.responseText;
+                            }
+                        }
+                    }
+                    map.centerAndZoom(poi.point, 13);
+                });
+                localSearch.search(keyword);
+                this.tableData={};
+                // 添加完成后查询列表菜单
+                this.findPage();
+            },
+
+
+
+        }
+    })
+</script>
+<script type="text/javascript">
+    // 百度地图API功能
+    function G(id) {
+        return document.getElementById(id);
+    }
+
+    var map = new BMap.Map("l-map");
+    map.centerAndZoom("合肥",12);                   // 初始化地图,设置城市和地图级别。
+    map.enableScrollWheelZoom();    //启用滚轮放大缩小，默认禁用
+    map.enableContinuousZoom();    //启用地图惯性拖拽，默认禁用
+
+    map.addControl(new BMap.NavigationControl());  //添加默认缩放平移控件
+    map.addControl(new BMap.OverviewMapControl()); //添加默认缩略地图控件
+
+
+    var ac = new BMap.Autocomplete(    //建立一个自动完成的对象
+        {"input" : "suggestId"
+            ,"location" : map
+        });
+
+    ac.addEventListener("onhighlight", function(e) {  //鼠标放在下拉列表上的事件
+        var str = "";
+        var _value = e.fromitem.value;
+        var value = "";
+        if (e.fromitem.index > -1) {
+            value = _value.province +  _value.city +  _value.district +  _value.street +  _value.business;
+        }
+        str = "FromItem<br />index = " + e.fromitem.index + "<br />value = " + value;
+
+        value = "";
+        if (e.toitem.index > -1) {
+            _value = e.toitem.value;
+            value = _value.province +  _value.city +  _value.district +  _value.street +  _value.business;
+        }
+        str += "<br />ToItem<br />index = " + e.toitem.index + "<br />value = " + value;
+        G("searchResultPanel").innerHTML = str;
+    });
+
+    var myValue;
+    ac.addEventListener("onconfirm", function(e) {    //鼠标点击下拉列表后的事件
+        var _value = e.item.value;
+        myValue = _value.province +  _value.city +  _value.district +  _value.street +  _value.business;
+        G("searchResultPanel").innerHTML ="onconfirm<br />index = " + e.item.index + "<br />myValue = " + myValue;
+
+        setPlace();
+    });
+
+    function setPlace(){
+        map.clearOverlays();    //清除地图上所有覆盖物
+        function myFun(){
+            var pp = local.getResults().getPoi(0).point;    //获取第一个智能搜索的结果
+            map.centerAndZoom(pp, 18);
+            map.addOverlay(new BMap.Marker(pp));    //添加标注
+        }
+        var local = new BMap.LocalSearch(map, { //智能搜索
+            onSearchComplete: myFun
+        });
+        local.search(myValue);
+    }
+
+</script>
+
+</html>

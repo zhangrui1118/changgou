@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <!-- 页面meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>传智健康</title>
+    <meta name="description" content="传智健康">
+    <meta name="keywords" content="传智健康">
+    <meta content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" name="viewport">
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="/plugins/elementui/index.css">
+    <link rel="stylesheet" href="/plugins/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/plugins/echarts/echarts.js"></script>
+</head>
+<body class="hold-transition">
+<div id="app">
+
+    <div class="content-header">
+        <h1>订单展示<small>展示订单的状态</small></h1>
+        <el-breadcrumb separator-class="el-icon-arrow-right" class="breadcrumb">
+            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item>订单展示</el-breadcrumb-item>
+            <el-breadcrumb-item>展示订单的状态</el-breadcrumb-item>
+        </el-breadcrumb>
+    </div>
+
+
+    <div class="app-container">
+
+        <div class="block" align="right">
+            <span class="demonstration">选择日期</span>
+            <el-date-picker
+                    v-model="value1"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    value-format="yyyy-MM-dd">
+
+            </el-date-picker>
+
+            <el-button @click="handleDate()">确定</el-button>
+        </div>
+
+        </div>
+
+
+        <div class="box">
+            <!-- 为 ECharts 准备一个具备大小（宽高）的 DOM -->
+            <div id="chart1" style="height:600px"></div>
+        </div>
+
+    </div>
+</div>
+</body>
+<!-- 引入组件库 -->
+<script src="/js/vue.js"></script>
+<script src="/plugins/elementui/index.js"></script>
+<script type="text/javascript" src="/js/jquery.min.js"></script>
+<script src="/js/axios-0.18.0.js"></script>
+<script type="text/javascript">
+
+        var vue = new Vue({
+            el: '#app',
+            data: {
+                value1: [],
+                },
+            mounted() {
+                this.handleDate();
+            },
+            methods: {
+                handleDate() {
+                    // 基于准备好的dom，初始化echarts实例
+                    var myChart1 = echarts.init(document.getElementById('chart1'));
+
+                    axios.post("/orderstatus/status",this.value1).then((res) => {
+                        myChart1.setOption (
+                            {
+                            title: {
+                                text: '后天订单管理系统',
+                                subtext: '订单饼状图',
+                                left: 'center'
+                            },
+                            tooltip: {
+                                trigger: 'item',
+                                formatter: '{a} <br/>{b} : {c} ({d}%)'
+                            },
+                            legend: {
+                                orient: 'vertical',
+                                left: 'left',
+                                // data: ['直接访问', '邮件营销', '联盟广告', '视频广告', '搜索引擎']
+                                data : res.data.data.nameList
+                            },
+                            series: [
+                                {
+                                    name: '访问来源',
+                                    type: 'pie',
+                                    radius: '55%',
+                                    center: ['50%', '60%'],
+                                    data : res.data.data.dataList,
+                                    // data: [
+                                    //     {value: 335, name: '直接访问'},
+                                    //     {value: 310, name: '邮件营销'},
+                                    //     {value: 234, name: '联盟广告'},
+                                    //     {value: 135, name: '视频广告'},
+                                    //     {value: 1548, name: '搜索引擎'}
+                                    // ],
+                                    emphasis: {
+                                        itemStyle: {
+                                            shadowBlur: 10,
+                                            shadowOffsetX: 0,
+                                            shadowColor: 'rgba(0, 0, 0, 0.5)'
+                                        }
+                                    }
+                                }
+                            ]
+                        });
+                    })
+                }
+            }
+        });
+
+</script>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <!-- 页面meta -->
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>畅购商城后台系统</title>
+    <meta name="description" content="畅购商城后台系统">
+    <meta name="keywords" content="畅购商城后台系统">
+    <meta content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" name="viewport">
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="/plugins/elementui/index.css">
+    <link rel="stylesheet" href="/plugins/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- 引入组件库 -->
+    <script type="text/javascript" src="/js/jquery.min.js"></script>
+    <script src="/js/vue.js"></script>
+    <script src="/plugins/elementui/index.js"></script>
+    <script src="/js/axios-0.18.0.js"></script>
+    <style>
+        .datatable {
+            position: relative;
+            box-sizing: border-box;
+            -webkit-box-flex: 1;
+            width: 100%;
+            max-width: 100%;
+            font-size: 14px;
+            color: rgb(96, 98, 102);
+            overflow: hidden;
+            flex: 1 1 0%;
+        }
+
+        .datatable td, .datatable th {
+            padding: 12px 0;
+            min-width: 0;
+            -webkit-box-sizing: border-box;
+            box-sizing: border-box;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+            position: relative;
+            text-align: left;
+        }
+
+        .input-class {
+            width: 210px;
+            height: 40px;
+        }
+    </style>
+</head>
+<body class="hold-transition">
+<div id="app">
+    <div class="content-header">
+        <h1>后台管理<small>后台订单管理</small></h1>
+        <el-breadcrumb separator-class="el-icon-arrow-right" class="breadcrumb">
+            <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item>后台管理</el-breadcrumb-item>
+            <el-breadcrumb-item>后台订单管理</el-breadcrumb-item>
+        </el-breadcrumb>
+    </div>
+    <div class="app-container">
+        <div class="box">
+            <div class="filter-container">
+                <el-popover
+                        placement="top"
+                        width="160"
+                        v-model="visible">
+                    <p>您确定要删除这些订单吗？删除无法恢复</p>
+                    <div style="text-align: right; margin: 0">
+                        <el-button size="mini" type="text" @click="visible = false">取消</el-button>
+                        <el-button type="primary" size="mini" @click="delect()">确定</el-button>
+                    </div>
+                    <el-button slot="reference">删除</el-button>
+                </el-popover>
+                <el-button type="success" @click="findPage()" plain >刷新</el-button>
+                <el-input placeholder="收货人姓名" v-model="order.name" style="width: 200px;"
+                          class="filter-item" @keyup.enter.native="handleFilter"></el-input>
+                <el-input placeholder="订单编号" v-model="order.string" style="width: 200px;"
+                          class="filter-item" @keyup.enter.native="handleFilter"></el-input>
+                <el-select v-model="order.orderType" placeholder="订单状态">
+                    <el-option label="未发货" value="0"></el-option>
+                    <el-option label="已发货" value="1"></el-option>
+                    <el-option label="已收货" value="2"></el-option>
+                </el-select>
+                <el-select v-model="order.orderStatus" placeholder="订单来源">
+                    <el-option label="PC" value="1"></el-option>
+                    <el-option label="app" value="2"></el-option>
+                    <el-option label="微信公众号" value="3"></el-option>
+                    <el-option label="微信小程序" value="4"></el-option>
+                    <el-option label="H5手机页面" value="5"></el-option>
+                </el-select>
+                <el-button @click="handleCurrentChange(1,10)" class="dalfBut">查询</el-button>
+                <el-button type="primary" class="butT" @click="clearPagination()">清除</el-button>
+                <el-button type="primary" @click="exportExcel" round>导出Excel</el-button>
+            </div>
+            <el-table ref="multipleTable" :data="dataList" tooltip-effect="dark" style="width: 100%" @selection-change="handleSelectionChange">
+                <el-table-column type="selection" width="55"></el-table-column>
+                <el-table-column prop="id" align="center" label="订单编号"></el-table-column>
+                <el-table-column prop="username" label="用户账号" align="center"></el-table-column>
+                <el-table-column prop="receiverContact" label="收货人" align="center"></el-table-column>
+                <el-table-column prop="receiverMobile" label="手机号" align="center"></el-table-column>
+                <el-table-column prop="payMoney" label="订单金额" align="center"></el-table-column>
+                <el-table-column prop="payType" label="支付方式" align="center"></el-table-column>
+                <el-table-column prop="sourceType" label="订单来源" align="center"></el-table-column>
+                <el-table-column prop="consignStatus" label="订单状态" align="center"></el-table-column>
+                <el-table-column label="操作" align="center">
+                    <template slot-scope="scope">
+                            <el-button size="mini" type="primary" plain @click="open2(scope.row)">订单详情</el-button>
+                        <el-tb>
+                            <el-button size="mini" type="danger" v-if="scope.row.consignStatus==='未发货'" @click="handleDeliver(scope.row.id)">订单发货</el-button>
+                        </el-tb>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-container">
+                <el-pagination
+                        class="pagiantion"
+                        @current-change="handleCurrentChange()"
+                        :current-page.sync="order.currentPage"
+                        :page-size="order.pageSize"
+                        layout="total, prev, pager, next, jumper"
+                        :total="order.total">
+                </el-pagination>
+            </div>
+            </el-table>
+        </div>
+    </div>
+</div>
+</body>
+
+<script>
+
+    var vue = new Vue({
+        el: '#app',
+        data: {
+                visible: false,
+
+            activeName: 'first',//添加/编辑窗口Tab标签名称
+            order: {//分页相关属性
+                currentPage: 1,
+                pageSize: 10,
+                total: 100,
+                orderType: null,
+                orderStatus: null,
+                string: null,
+                name: null,
+                pay: false,
+                checked: true
+            },
+            pickerOptions0: {
+                disabledDate(time) {
+                    return time.getTime() < Date.now() - 8.64e7;//如果没有后面的-8.64e7就是不可以选择今天的
+                }
+            },
+            order_id: undefined,
+            dataList: [],//列表数据
+            checkList: [],
+            multipleSelection: [],
+            rules: {//校验规则
+                memberName: [{required: true, message: '姓名为必填项', trigger: 'blur'}],
+                phoneNumber: [{required: true, message: '电话号码为必填项', trigger: 'blur'}],
+            }
+        },
+        created() {
+            this.findPage();
+        },
+        methods: {
+            //删除
+            delect(){
+                this.visible=false;
+                    var orderList=this.multipleSelection;
+                    axios.post("/system/deleteOrder",orderList).then((res)=>{
+                        alert(res.data.message);
+                    }).finally(()=>{
+                        this.findPage();
+                    });
+            },
+            //导出Excel
+            exportExcel() {
+                var dataList =this.dataList;
+                axios.post("/system/POIExcel",dataList).then((res)=>{
+                    alert(res.data.message)
+                });
+            },
+            handleSelectionChange(val) {
+                this.multipleSelection = val;
+            },
+            //分页查询
+            findPage() {
+                axios.get("/system/search").then((res) => {
+                    this.dataList = res.data.data.result;
+                    this.order.total = res.data.data.total;
+                });
+            },
+
+            //条件查询
+            handleCurrentChange() {
+                   var currentPage=this.order.currentPage;
+                   var pageSize= this.order.pageSize;
+                var param = {
+                    consignStatus: this.order.orderType,
+                    sourceType: this.order.orderStatus,
+                    id: this.order.string,
+                    receiverContact: this.order.name,
+                }
+                axios.post("/system/condition?currentPage="+currentPage+"&pageSize="+pageSize, param).then((res) => {
+                    this.dataList = res.data.data.result;
+                    this.order.total = res.data.data.total;
+                });
+
+            },
+            //订单发货
+            handleDeliver(row){
+                axios.get("/system/deliver?id="+row).then((res)=>{
+                    alert(res.data.message);
+                    this.findPage();
+                })
+            },
+            //订单详情
+            open2(row) {
+                var particulars={
+                    数量合计: row.totalNum,
+                    金额合计: row.totalMoney,
+                    优惠金额: row.preMoney,
+                    邮费: row.postFee,
+                    实付金额: row.payMoney,
+                    支付类型: row.payType,
+                    订单创建时间: row.createTime,
+                    付款时间: row.payTime,
+                    发货时间: row.consignTime,
+                    交易完成时间: row.endTime,
+                    物流单号: row.shippingCode,
+                    买家留言: row.buyerMessage,
+                    收货人: row.receiverContact,
+                    收货人手机: row.receiverMobile,
+                    收货人地址: row.receiverAddress,
+                }
+                this.$notify({
+                    title: '订单详情',
+                    message: particulars,
+                    duration: 0
+                });
+            },
+            //清除
+            clearPagination() {
+                this.order.name = null;
+                this.order.orderType = null;
+                this.order.orderStatus = null;
+                this.order.string = null;
+                this.handleCurrentChange(1, 10);
+            }
+
+
+        }
+    });
+</script>
+</html>
